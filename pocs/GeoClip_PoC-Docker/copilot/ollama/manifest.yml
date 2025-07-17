@@ -1,0 +1,72 @@
+# The manifest for the "ollama" service.
+# Read the full specification for the "Backend Service" type at:
+#  https://aws.github.io/copilot-cli/docs/manifest/backend-service/
+
+# Your service name will be used in naming your resources like log groups, ECS services, etc.
+name: ollama
+type: Backend Service
+
+# Your service is reachable at "http://ollama.${COPILOT_SERVICE_DISCOVERY_ENDPOINT}:11434" but is not public.
+
+# Configuration for your containers and service.
+image:
+  build: Dockerfile-GPU.ollama
+  # Port exposed through your container to route traffic to it.
+  port: 11434
+
+# GPU-optimized resource allocation for g4dn.2xlarge
+cpu: 8192       # Number of CPU units for the task (8 vCPU).
+memory: 32768   # Amount of memory in MiB used by the task (32GB).
+count: 1       # Number of tasks that should be running in your service.
+exec: true     # Enable running commands in your container.
+
+# GPU configuration (requires EC2 launch type)
+launch_type: EC2
+
+# GPU resource allocation for g4dn.2xlarge
+gpu:
+  count: 1
+  type: "g4dn.2xlarge"  # Specify GPU instance type
+
+network:
+  connect: true # Enable Service Connect for intra-environment traffic between services.
+
+# Environment variables for GPU optimization
+variables:
+  ENVIRONMENT: production
+  CUDA_VISIBLE_DEVICES: "0"
+  OLLAMA_GPU_LAYERS: "35"
+  OLLAMA_HOST: "0.0.0.0"
+  OLLAMA_ORIGINS: "*"
+
+# storage:
+  # readonly_fs: true       # Limit to read-only access to mounted root filesystems.
+
+# Optional fields for more advanced use-cases.
+#
+#variables:                    # Pass environment variables as key value pairs.
+#  LOG_LEVEL: info
+
+#secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
+#  GITHUB_TOKEN: GITHUB_TOKEN  # The key is the name of the environment variable, the value is the name of the SSM parameter.
+
+# You can override any of the values defined above by environment.
+#environments:
+#  test:
+#    count: 2               # Number of tasks to run for the "test" environment.
+#    deployment:            # The deployment strategy for the "test" environment.
+#       rolling: 'recreate' # Stops existing tasks before new ones are started for faster deployments.
+
+# Health check
+healthcheck:
+  command: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 180s  # Increased start period for GPU model loading
+
+# Environment-specific overrides
+environments:
+  test1:
+    variables:
+      OLLAMA_API_URL: http://ollama.test1.geoclip.local:11434/api/generate
